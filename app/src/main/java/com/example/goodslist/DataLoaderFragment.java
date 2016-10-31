@@ -29,10 +29,12 @@ public class DataLoaderFragment extends Fragment {
 			"user_token=63a12a8116814a9574842515378c93c64846fc3d0858def78388be37e127cd17&store_id=1";
 	private static final int CONNECTION_TIMEOUT = 10000;
 	private static final int READ_STREAM_TIMEOUT = 8000;
-	private static final String DATA_URL_PAGE = "page";
+	private static final String DATA_URL_PAGE = "page_override";
 
 	private DataReceivedListener mDataReceiverCallback;
 	private DataLoaderTask mLoaderTask;
+	private int mCurrentPage;
+	private int mPagesCount;
 
 	@Override
 	public void onAttach(Context context) {
@@ -44,6 +46,7 @@ public class DataLoaderFragment extends Fragment {
 	public void onCreate(@Nullable Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setRetainInstance(true);
+		mCurrentPage = 1;
 		mLoaderTask = new DataLoaderTask();
 		mLoaderTask.execute();
 	}
@@ -56,10 +59,20 @@ public class DataLoaderFragment extends Fragment {
 
 	public interface DataReceivedListener {
 
+		void onStartDataLoading();
+
 		void onDataReceived(List<Product> products);
 	}
 
 	private class DataLoaderTask extends AsyncTask<Void, Void, List<Product>> {
+
+		@Override
+		protected void onPreExecute() {
+			super.onPreExecute();
+			if (mDataReceiverCallback != null) {
+				mDataReceiverCallback.onStartDataLoading();
+			}
+		}
 
 		@Override
 		protected List<Product> doInBackground(Void... params) {
@@ -75,6 +88,9 @@ public class DataLoaderFragment extends Fragment {
 			super.onPostExecute(products);
 			if (mDataReceiverCallback != null) {
 				mDataReceiverCallback.onDataReceived(products);
+			}
+			if (mCurrentPage < mPagesCount) {
+				mLoaderTask.execute();
 			}
 		}
 
@@ -117,6 +133,8 @@ public class DataLoaderFragment extends Fragment {
 				productObject = array.getJSONObject(i);
 				products.add(new Product(productObject.optString("name"), productObject.optString("thumbnail_path"), productObject.optDouble("price")));
 			}
+			mPagesCount = object.optInt("number_pages");
+			mCurrentPage = object.optInt("current_page");
 			return products;
 		}
 	}
