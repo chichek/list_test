@@ -43,7 +43,7 @@ public class ProductsAdapter extends RecyclerView.Adapter<ProductsAdapter.ViewHo
 		Product product = mProducts.get(position);
 		holder.mProductNameTextView.setText(product.getProductName());
 		holder.mProductPriceTextView.setText(String.format(Locale.ENGLISH, "%.2f", product.getProductPrice()));
-		Picasso.with(mContext).load(product.getProductImage()).resize(50, 50).centerCrop().into(holder.mProductImageView);
+		Picasso.with(mContext).load(product.getProductImage()).into(holder.mProductImageView);
 	}
 
 	@Override

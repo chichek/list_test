@@ -5,17 +5,17 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
-import android.util.JsonReader;
-import android.util.JsonToken;
 
 import com.example.goodslist.model.Product;
 
-import java.io.BufferedInputStream;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
@@ -37,7 +37,7 @@ public class DataLoaderFragment extends Fragment {
 	@Override
 	public void onAttach(Context context) {
 		super.onAttach(context);
-		mDataReceiverCallback = (DataReceivedListener)context;
+		mDataReceiverCallback = (DataReceivedListener) context;
 	}
 
 	@Override
@@ -65,7 +65,7 @@ public class DataLoaderFragment extends Fragment {
 		protected List<Product> doInBackground(Void... params) {
 			try {
 				return downloadUrl();
-			} catch (IOException error) {
+			} catch (Exception error) {
 				return new ArrayList<>();
 			}
 		}
@@ -78,7 +78,7 @@ public class DataLoaderFragment extends Fragment {
 			}
 		}
 
-		private List<Product> downloadUrl() throws IOException {
+		private List<Product> downloadUrl() throws IOException, JSONException {
 			InputStream is = null;
 			try {
 				URL url = new URL(DATA_URL);
@@ -90,7 +90,7 @@ public class DataLoaderFragment extends Fragment {
 				conn.connect();
 				int response = conn.getResponseCode();
 				if (response == HttpsURLConnection.HTTP_OK) {
-					is = new BufferedInputStream(conn.getInputStream());
+					is = conn.getInputStream();
 					return parseResponse(is);
 				}
 			} finally {
@@ -101,46 +101,23 @@ public class DataLoaderFragment extends Fragment {
 			return new ArrayList<>();
 		}
 
-		private List<Product> parseResponse(InputStream stream) throws IOException {
-			JsonReader reader = new JsonReader(new InputStreamReader(stream, "UTF-8"));
-			try {
-				List<Product> messages = new ArrayList<>();
-				if (reader.nextName().equals("trend_products")) {
-					reader.beginObject();
-					if (reader.nextName().equals("products") && reader.peek() != JsonToken.NULL) {
-						reader.beginArray();
-						while (reader.hasNext()) {
-							messages.add(readProduct(reader));
-						}
-						reader.endArray();
-					}
-				}
-				return messages;
-			} finally {
-				reader.close();
+		private List<Product> parseResponse(InputStream stream) throws IOException, JSONException {
+			BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"), 8);
+			StringBuilder sb = new StringBuilder();
+			String inputStr;
+			while ((inputStr = reader.readLine()) != null) {
+				sb.append(inputStr);
 			}
-		}
-
-		private Product readProduct(JsonReader reader) throws IOException {
-			String title = null;
-			double price = 0;
-			String image = null;
-			reader.beginObject();
-			while (reader.hasNext()) {
-				String name = reader.nextName();
-				if (name.equals("name")) {
-					title = reader.nextString();
-				} else if (name.equals("price")) {
-					price = reader.nextDouble();
-				} else if (name.equals("thumbnail_path")) {
-					image = reader.nextString();
-				} else {
-					reader.skipValue();
-				}
+			JSONObject object = new JSONObject(sb.toString());
+			List<Product> products = new ArrayList<>();
+			object = object.getJSONObject("trend_products");
+			JSONArray array = object.getJSONArray("products");
+			JSONObject productObject;
+			for (int i = 0; i < array.length(); i++) {
+				productObject = array.getJSONObject(i);
+				products.add(new Product(productObject.optString("name"), productObject.optString("thumbnail_path"), productObject.optDouble("price")));
 			}
-			reader.endObject();
-			return new Product(title, image, price);
+			return products;
 		}
-
 	}
 }
