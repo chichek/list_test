@@ -1,6 +1,7 @@
 package com.example.goodslist;
 
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.support.v4.app.FragmentManager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.GridLayoutManager;
@@ -11,13 +12,17 @@ import android.widget.ProgressBar;
 import com.example.goodslist.adapter.ProductsAdapter;
 import com.example.goodslist.model.Product;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements DataLoaderFragment.DataReceivedListener {
 
-	public static final String TAG_DATA_LOADER_FRAGMENT = "data_loader_fragment_tag";
+	private static final String TAG_DATA_LOADER_FRAGMENT = "data_loader_fragment_tag";
+	private static final String KEY_LAYOUT_STATE = "key_layout_state";
+	private static final String KEY_DATA_ARRAY_LIST = "key_data_array_list";
 	private ProductsAdapter mAdapter;
 	private ProgressBar mProgressBar;
+	private GridLayoutManager mLayoutManager;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -26,9 +31,14 @@ public class MainActivity extends AppCompatActivity implements DataLoaderFragmen
 		mProgressBar = (ProgressBar) findViewById(R.id.act_main_progress);
 		mAdapter = new ProductsAdapter(this);
 		loadData(false);
+		mLayoutManager = new GridLayoutManager(this, 2);
+		if (savedInstanceState != null) {
+			mLayoutManager.onRestoreInstanceState(savedInstanceState.getParcelable(KEY_LAYOUT_STATE));
+			mAdapter.addProducts(savedInstanceState.<Product>getParcelableArrayList(KEY_DATA_ARRAY_LIST));
+		}
 		RecyclerView recyclerView = (RecyclerView) findViewById(R.id.act_main_recyclerview);
 		recyclerView.setHasFixedSize(true);
-		recyclerView.setLayoutManager(new GridLayoutManager(this, 2));
+		recyclerView.setLayoutManager(mLayoutManager);
 		recyclerView.setAdapter(mAdapter);
 	}
 
@@ -46,6 +56,13 @@ public class MainActivity extends AppCompatActivity implements DataLoaderFragmen
 			mAdapter.addProducts(products);
 			loadData(true);
 		}
+	}
+
+	@Override
+	protected void onSaveInstanceState(Bundle outState) {
+		super.onSaveInstanceState(outState);
+		outState.putParcelable(KEY_LAYOUT_STATE, mLayoutManager.onSaveInstanceState());
+		outState.putParcelableArrayList(KEY_DATA_ARRAY_LIST, (ArrayList<? extends Parcelable>) mAdapter.getProducts());
 	}
 
 	private void loadData(boolean hasDataAlready) {

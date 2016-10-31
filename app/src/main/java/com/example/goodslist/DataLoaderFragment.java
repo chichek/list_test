@@ -45,7 +45,6 @@ public class DataLoaderFragment extends Fragment {
 	public void onCreate(@Nullable Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setRetainInstance(true);
-		mCurrentPage = 1;
 		mLoaderTask = new DataLoaderTask();
 		mLoaderTask.execute();
 	}
@@ -100,7 +99,7 @@ public class DataLoaderFragment extends Fragment {
 		private List<Product> downloadUrl() throws IOException, JSONException {
 			InputStream is = null;
 			try {
-				URL url = new URL(DATA_URL + mCurrentPage);
+				URL url = new URL(DATA_URL + (mCurrentPage + 1));
 				HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 				conn.setReadTimeout(READ_STREAM_TIMEOUT);
 				conn.setConnectTimeout(CONNECTION_TIMEOUT);

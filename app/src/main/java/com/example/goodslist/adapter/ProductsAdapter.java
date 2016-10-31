@@ -32,6 +32,10 @@ public class ProductsAdapter extends RecyclerView.Adapter<ProductsAdapter.ViewHo
 		notifyItemRangeInserted(initialSize, moreProducts.size());
 	}
 
+	public List<Product> getProducts() {
+		return mProducts;
+	}
+
 	@Override
 	public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
 		View v = LayoutInflater.from(mContext).inflate(R.layout.product_item_layout, parent, false);
