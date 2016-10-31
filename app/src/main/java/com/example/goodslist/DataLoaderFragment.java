@@ -26,10 +26,9 @@ import javax.net.ssl.HttpsURLConnection;
 public class DataLoaderFragment extends Fragment {
 
 	private static final String DATA_URL = "https://test4.lesara.de/restapi/v1/trendproducts/?app_token=this_is_an_app_token&" +
-			"user_token=63a12a8116814a9574842515378c93c64846fc3d0858def78388be37e127cd17&store_id=1";
+			"user_token=63a12a8116814a9574842515378c93c64846fc3d0858def78388be37e127cd17&store_id=1&page_override=";
 	private static final int CONNECTION_TIMEOUT = 10000;
 	private static final int READ_STREAM_TIMEOUT = 8000;
-	private static final String DATA_URL_PAGE = "page_override";
 
 	private DataReceivedListener mDataReceiverCallback;
 	private DataLoaderTask mLoaderTask;
@@ -49,6 +48,13 @@ public class DataLoaderFragment extends Fragment {
 		mCurrentPage = 1;
 		mLoaderTask = new DataLoaderTask();
 		mLoaderTask.execute();
+	}
+
+	public void loadMoreData() {
+		if (mCurrentPage < mPagesCount) {
+			mLoaderTask = new DataLoaderTask();
+			mLoaderTask.execute();
+		}
 	}
 
 	@Override
@@ -89,15 +95,12 @@ public class DataLoaderFragment extends Fragment {
 			if (mDataReceiverCallback != null) {
 				mDataReceiverCallback.onDataReceived(products);
 			}
-			if (mCurrentPage < mPagesCount) {
-				mLoaderTask.execute();
-			}
 		}
 
 		private List<Product> downloadUrl() throws IOException, JSONException {
 			InputStream is = null;
 			try {
-				URL url = new URL(DATA_URL);
+				URL url = new URL(DATA_URL + mCurrentPage);
 				HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 				conn.setReadTimeout(READ_STREAM_TIMEOUT);
 				conn.setConnectTimeout(CONNECTION_TIMEOUT);

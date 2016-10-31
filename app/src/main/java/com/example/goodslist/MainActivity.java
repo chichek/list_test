@@ -2,11 +2,11 @@ package com.example.goodslist;
 
 import android.os.Bundle;
 import android.support.v4.app.FragmentManager;
-import android.support.v4.widget.ContentLoadingProgressBar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.View;
+import android.widget.ProgressBar;
 
 import com.example.goodslist.adapter.ProductsAdapter;
 import com.example.goodslist.model.Product;
@@ -17,15 +17,15 @@ public class MainActivity extends AppCompatActivity implements DataLoaderFragmen
 
 	public static final String TAG_DATA_LOADER_FRAGMENT = "data_loader_fragment_tag";
 	private ProductsAdapter mAdapter;
-	private ContentLoadingProgressBar mProgressDialog;
+	private ProgressBar mProgressBar;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.act_main);
-		mProgressDialog = (ContentLoadingProgressBar) findViewById(R.id.act_main_progress);
+		mProgressBar = (ProgressBar) findViewById(R.id.act_main_progress);
 		mAdapter = new ProductsAdapter(this);
-		loadData();
+		loadData(false);
 		RecyclerView recyclerView = (RecyclerView) findViewById(R.id.act_main_recyclerview);
 		recyclerView.setHasFixedSize(true);
 		recyclerView.setLayoutManager(new GridLayoutManager(this, 2));
@@ -44,25 +44,29 @@ public class MainActivity extends AppCompatActivity implements DataLoaderFragmen
 		stopProgress();
 		if (mAdapter != null) {
 			mAdapter.addProducts(products);
+			loadData(true);
 		}
 	}
 
-	private void loadData() {
+	private void loadData(boolean hasDataAlready) {
 		FragmentManager fragmentManager = getSupportFragmentManager();
 		DataLoaderFragment fragment = (DataLoaderFragment) fragmentManager.findFragmentByTag(TAG_DATA_LOADER_FRAGMENT);
 		if (fragment == null) {
 			fragment = new DataLoaderFragment();
 			fragmentManager.beginTransaction().add(fragment, TAG_DATA_LOADER_FRAGMENT).commit();
 		}
+		if (hasDataAlready) {
+			fragment.loadMoreData();
+		}
 	}
 
 	private void startProgress() {
-		mProgressDialog.setVisibility(View.VISIBLE);
+		mProgressBar.setVisibility(View.VISIBLE);
 	}
 
 	private void stopProgress() {
-		if (mProgressDialog.getVisibility() != View.GONE) {
-			mProgressDialog.setVisibility(View.GONE);
+		if (mProgressBar.getVisibility() != View.GONE) {
+			mProgressBar.setVisibility(View.GONE);
 		}
 	}
 }
