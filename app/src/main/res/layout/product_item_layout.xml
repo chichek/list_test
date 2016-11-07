@@ -9,6 +9,7 @@
 		android:id="@+id/product_item_layout_image"
 		android:layout_width="match_parent"
 		android:layout_height="wrap_content"
+		android:scaleType="center"
 		android:contentDescription="@string/product_image" />
 
 	<LinearLayout
@@ -27,7 +28,7 @@
 			android:id="@+id/product_item_layout_price"
 			style="@style/Base.TextAppearance.AppCompat.Body2"
 			android:layout_width="0dp"
-			android:gravity="right"
+			android:gravity="end"
 			android:layout_height="wrap_content"
 			android:layout_weight="1" />
 	</LinearLayout>
