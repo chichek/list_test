@@ -8,6 +8,8 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.example.goodslist.HttpHelper;
+import com.example.goodslist.MainActivity;
 import com.example.goodslist.R;
 import com.example.goodslist.model.Product;
 import com.squareup.picasso.Picasso;
@@ -47,7 +49,7 @@ public class ProductsAdapter extends RecyclerView.Adapter<ProductsAdapter.ViewHo
 		Product product = mProducts.get(position);
 		holder.mProductNameTextView.setText(product.getProductName());
 		holder.mProductPriceTextView.setText(String.format(Locale.ENGLISH, "%.2f", product.getProductPrice()));
-		Picasso.with(mContext).load(product.getProductImage())
+		HttpHelper.getInstance().getPicassoDownloader(mContext).load(product.getProductImage())
 				.placeholder(android.R.drawable.gallery_thumb)
 				.into(holder.mProductImageView);
 	}

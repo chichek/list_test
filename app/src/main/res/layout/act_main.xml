@@ -2,10 +2,17 @@
 <FrameLayout
 	xmlns:android="http://schemas.android.com/apk/res/android"
 	android:layout_width="match_parent"
-	android:layout_height="match_parent">
+	android:layout_height="match_parent"
+	android:background="@android:drawable/screen_background_light_transparent"
+	android:paddingStart="@dimen/activity_horizontal_margin"
+	android:paddingEnd="@dimen/activity_horizontal_margin"
+	xmlns:app="http://schemas.android.com/apk/res-auto">
+
 	<android.support.v7.widget.RecyclerView
 		android:id="@+id/act_main_recyclerview"
 		android:scrollbars="vertical"
+		app:spanCount="@integer/span_count"
+		app:layoutManager="android.support.v7.widget.GridLayoutManager"
 		android:layout_width="match_parent"
 		android:layout_height="match_parent" />
 

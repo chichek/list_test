@@ -1,12 +1,13 @@
 package com.example.goodslist;
 
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
-import android.net.Uri;
+import android.content.ServiceConnection;
 import android.os.Bundle;
-import android.os.Handler;
+import android.os.IBinder;
 import android.os.Parcelable;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.View;
 import android.widget.ProgressBar;
@@ -26,7 +27,6 @@ public class MainActivity extends AppCompatActivity implements GoodsReceiver.Dat
 	public static final String KEY_RECEIVED_PAGE = "key_received_page";
 	public static final String KEY_RECEIVED_PAGES_COUNT = "key_received_pages_count";
 
-	private static final String KEY_LAYOUT_STATE = "key_layout_state";
 	private static final String KEY_STATE_ARRAY_LIST = "key_state_array_list";
 	private static final String KEY_STATE_CURRENT_PAGE = "key_state_current_page";
 	private static final String KEY_STATE_PAGES_COUNT = "key_state_pages_count";
@@ -36,8 +36,9 @@ public class MainActivity extends AppCompatActivity implements GoodsReceiver.Dat
 
 	private ProductsAdapter mAdapter;
 	private ProgressBar mProgressBar;
-	private GridLayoutManager mLayoutManager;
 	private GoodsReceiver mReceiver;
+	private GoodsDownloadService mDownloadService;
+	private boolean isServiceBound;
 	private int mCurrentPage;
 	private int mPagesCount;
 
@@ -47,51 +48,73 @@ public class MainActivity extends AppCompatActivity implements GoodsReceiver.Dat
 		setContentView(R.layout.act_main);
 		mProgressBar = (ProgressBar) findViewById(R.id.act_main_progress);
 		mAdapter = new ProductsAdapter(this);
-		mLayoutManager = new GridLayoutManager(this, 2);
-		//TODO use this handler instead of interface
-		mReceiver = new GoodsReceiver(new Handler(), this);
+		mReceiver = new GoodsReceiver(null, this);
 		if (savedInstanceState != null) {
-			mLayoutManager.onRestoreInstanceState(savedInstanceState.getParcelable(KEY_LAYOUT_STATE));
 			mAdapter.addProducts(savedInstanceState.<Product>getParcelableArrayList(KEY_STATE_ARRAY_LIST));
 			mCurrentPage = savedInstanceState.getInt(KEY_STATE_CURRENT_PAGE);
 			mPagesCount = savedInstanceState.getInt(KEY_STATE_PAGES_COUNT);
 		}
-		loadData();
 		RecyclerView recyclerView = (RecyclerView) findViewById(R.id.act_main_recyclerview);
 		recyclerView.setHasFixedSize(true);
-		recyclerView.setLayoutManager(mLayoutManager);
 		recyclerView.setAdapter(mAdapter);
+		startProgress();
 	}
 
 	@Override
-	public void onDataReceived(Bundle data) {
-		stopProgress();
-		if (mAdapter != null) {
-			mAdapter.addProducts(data.<Product>getParcelableArrayList(KEY_RECEIVED_ITEMS));
-			mCurrentPage = data.getInt(KEY_RECEIVED_PAGE);
-			mPagesCount = data.getInt(KEY_RECEIVED_PAGES_COUNT);
-			if (mCurrentPage < mPagesCount) {
-				loadData();
+	protected void onStart() {
+		super.onStart();
+		Intent request = new Intent(this, GoodsDownloadService.class);
+		bindService(request, mServiceConnection, Context.BIND_AUTO_CREATE);
+		loadData();
+	}
+
+	@Override
+	public void onDataReceived(final Bundle data) {
+		runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				stopProgress();
+				if (mAdapter != null) {
+					mAdapter.addProducts(data.<Product>getParcelableArrayList(KEY_RECEIVED_ITEMS));
+					mCurrentPage = data.getInt(KEY_RECEIVED_PAGE);
+					mPagesCount = data.getInt(KEY_RECEIVED_PAGES_COUNT);
+					if (mCurrentPage < mPagesCount) {
+						loadData();
+					}
+				}
 			}
-		}
+		});
 	}
 
 	@Override
 	protected void onSaveInstanceState(Bundle outState) {
 		super.onSaveInstanceState(outState);
-		outState.putParcelable(KEY_LAYOUT_STATE, mLayoutManager.onSaveInstanceState());
 		outState.putParcelableArrayList(KEY_STATE_ARRAY_LIST, (ArrayList<? extends Parcelable>) mAdapter.getProducts());
 		outState.putInt(KEY_STATE_CURRENT_PAGE, mCurrentPage);
 		outState.putInt(KEY_STATE_PAGES_COUNT, mPagesCount);
 	}
 
+	@Override
+	protected void onStop() {
+		super.onStop();
+		if (isServiceBound) {
+			unbindService(mServiceConnection);
+			isServiceBound = false;
+		}
+	}
+
 	private void loadData() {
-		startProgress();
-		//TODO check connection
-		Intent request = new Intent(this, GoodsDownloadService.class);
-		request.putExtra(KEY_DATA_RECEIVER, mReceiver);
-		request.putExtra(KEY_DOWNLOAD_URL, DATA_URL + (mCurrentPage + 1));
-		startService(request);
+		//TODO fix solution
+		if (isServiceBound) {
+			mDownloadService.downloadGoods(mReceiver, DATA_URL + (mCurrentPage + 1));
+		} else {
+			mProgressBar.postDelayed(new Runnable() {
+				@Override
+				public void run() {
+					loadData();
+				}
+			}, 1000);
+		}
 	}
 
 	private void startProgress() {
@@ -103,4 +126,17 @@ public class MainActivity extends AppCompatActivity implements GoodsReceiver.Dat
 			mProgressBar.setVisibility(View.GONE);
 		}
 	}
+
+	private ServiceConnection mServiceConnection = new ServiceConnection() {
+		@Override
+		public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
+			mDownloadService = ((GoodsDownloadService.DownloadBinder) iBinder).getService();
+			isServiceBound = true;
+		}
+
+		@Override
+		public void onServiceDisconnected(ComponentName componentName) {
+			isServiceBound = false;
+		}
+	};
 }

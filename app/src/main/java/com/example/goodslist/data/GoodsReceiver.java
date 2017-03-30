@@ -6,7 +6,6 @@ import android.os.ResultReceiver;
 
 public class GoodsReceiver extends ResultReceiver {
 
-	//TODO rewrite using handler
 	private DataReceivedListener mDataReceiverCallback;
 
 	public GoodsReceiver(Handler handler, DataReceivedListener callback) {

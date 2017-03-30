@@ -1,10 +1,18 @@
 package com.example.goodslist.data;
 
-import android.app.IntentService;
+import android.app.Service;
 import android.content.Intent;
+import android.os.Binder;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.IBinder;
+import android.os.Looper;
+import android.os.Message;
+import android.os.Process;
 import android.os.ResultReceiver;
 
+import com.example.goodslist.HttpHelper;
 import com.example.goodslist.MainActivity;
 import com.example.goodslist.model.Product;
 
@@ -12,92 +20,95 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.net.ssl.HttpsURLConnection;
+import okhttp3.Request;
+import okhttp3.Response;
 
-public class GoodsDownloadService extends IntentService {
+public class GoodsDownloadService extends Service {
 
-	public static final int RESULT_RUNNING = 0;
 	public static final int RESULT_OK = 1;
 	public static final int RESULT_ERROR = 2;
 
-	private static final int CONNECTION_TIMEOUT = 10000;
-	private static final int READ_STREAM_TIMEOUT = 8000;
+	private ServiceHandler mServiceHandler;
+	private IBinder mBinder;
 
-	private List<Product> mProducts;
-	private int mPageReceived;
-	private int mPagesCount;
-
-	public GoodsDownloadService() {
-		super(GoodsDownloadService.class.getName());
+	@Override
+	public void onCreate() {
+		HandlerThread thread = new HandlerThread(GoodsDownloadService.class.getName(), Process.THREAD_PRIORITY_BACKGROUND);
+		thread.start();
+		mServiceHandler = new ServiceHandler(thread.getLooper());
+		mBinder = new DownloadBinder();
 	}
 
 	@Override
-	protected void onHandleIntent(Intent intent) {
-		final ResultReceiver goodsReceiver = intent.getParcelableExtra(MainActivity.KEY_DATA_RECEIVER);
-		String urlAddress = intent.getStringExtra(MainActivity.KEY_DOWNLOAD_URL);
-		Bundle result = new Bundle();
-		int resultCode = RESULT_RUNNING;
-		try {
-			downloadUrl(urlAddress);
-			result.putParcelableArrayList(MainActivity.KEY_RECEIVED_ITEMS, (ArrayList<Product>) mProducts);
-			result.putInt(MainActivity.KEY_RECEIVED_PAGE, mPageReceived);
-			result.putInt(MainActivity.KEY_RECEIVED_PAGES_COUNT, mPagesCount);
-			resultCode = RESULT_OK;
-		} catch (Exception e) {
-			result.putString(MainActivity.KEY_RECEIVED_ITEMS, e.getMessage());
-			resultCode = RESULT_ERROR;
-		}
-		goodsReceiver.send(resultCode, result);
+	public IBinder onBind(Intent intent) {
+		return mBinder;
 	}
 
-	private void downloadUrl(String urlAddress) throws IOException, JSONException {
-		InputStream is = null;
-		try {
-			URL url = new URL(urlAddress);
-			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-			conn.setReadTimeout(READ_STREAM_TIMEOUT);
-			conn.setConnectTimeout(CONNECTION_TIMEOUT);
-			conn.setRequestMethod("GET");
-			conn.setDoInput(true);
-			conn.connect();
-			int response = conn.getResponseCode();
-			if (response == HttpsURLConnection.HTTP_OK) {
-				is = conn.getInputStream();
-				parseResponse(is);
-			}
-		} finally {
-			if (is != null) {
-				is.close();
-			}
+	public void downloadGoods(GoodsReceiver receiver, String url) {
+		Message msg = mServiceHandler.obtainMessage();
+		Bundle data = new Bundle();
+		data.putParcelable(MainActivity.KEY_DATA_RECEIVER, receiver);
+		data.putString(MainActivity.KEY_DOWNLOAD_URL, url);
+		msg.setData(data);
+		mServiceHandler.sendMessage(msg);
+	}
+
+	public class DownloadBinder extends Binder {
+		public GoodsDownloadService getService () {
+			return GoodsDownloadService.this;
 		}
 	}
 
-	private void parseResponse(InputStream stream) throws IOException, JSONException {
-		BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"), 8);
-		StringBuilder sb = new StringBuilder();
-		String inputStr;
-		while ((inputStr = reader.readLine()) != null) {
-			sb.append(inputStr);
+	private final class ServiceHandler extends Handler {
+
+		private List<Product> mProducts;
+		private int mPageReceived;
+		private int mPagesCount;
+
+		ServiceHandler(Looper looper) {
+			super(looper);
 		}
-		JSONObject object = new JSONObject(sb.toString());
-		mProducts = new ArrayList<>();
-		object = object.getJSONObject("trend_products");
-		JSONArray array = object.getJSONArray("products");
-		JSONObject productObject;
-		for (int i = 0; i < array.length(); i++) {
-			productObject = array.getJSONObject(i);
-			mProducts.add(new Product(productObject.optString("name"), productObject.optString("thumbnail_path"), productObject.optDouble("price")));
+
+		@Override
+		public void handleMessage(Message msg) {
+			Bundle data = msg.getData();
+			if (!data.isEmpty()) {
+				final ResultReceiver goodsReceiver = data.getParcelable(MainActivity.KEY_DATA_RECEIVER);
+				String urlAddress = data.getString(MainActivity.KEY_DOWNLOAD_URL);
+				Bundle result = new Bundle();
+				int resultCode;
+				try {
+					Request request = new Request.Builder().url(urlAddress).build();
+					Response response = HttpHelper.getInstance().getOkHttpClient().newCall(request).execute();
+					parseResponse(response.body().string());
+					result.putParcelableArrayList(MainActivity.KEY_RECEIVED_ITEMS, (ArrayList<Product>) mProducts);
+					result.putInt(MainActivity.KEY_RECEIVED_PAGE, mPageReceived);
+					result.putInt(MainActivity.KEY_RECEIVED_PAGES_COUNT, mPagesCount);
+					resultCode = RESULT_OK;
+				} catch (Exception e) {
+					result.putString(MainActivity.KEY_RECEIVED_ITEMS, e.getMessage());
+					resultCode = RESULT_ERROR;
+				}
+				goodsReceiver.send(resultCode, result);
+			}
 		}
-		mPagesCount = object.optInt("number_pages");
-		mPageReceived = object.optInt("current_page");
+
+		private void parseResponse(String jsonResponse) throws IOException, JSONException {
+			JSONObject object = new JSONObject(jsonResponse);
+			mProducts = new ArrayList<>();
+			object = object.getJSONObject("trend_products");
+			JSONArray array = object.getJSONArray("products");
+			JSONObject productObject;
+			for (int i = 0; i < array.length(); i++) {
+				productObject = array.getJSONObject(i);
+				mProducts.add(new Product(productObject.optString("name"), productObject.optString("thumbnail_path"), productObject.optDouble("price")));
+			}
+			mPagesCount = object.optInt("number_pages");
+			mPageReceived = object.optInt("current_page");
+		}
 	}
 }

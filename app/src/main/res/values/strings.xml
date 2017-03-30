@@ -1,4 +1,5 @@
 <resources>
 	<string name="app_name">GoodsList</string>
 	<string name="product_image">Product image</string>
+	<string name="start_loading">Start loading</string>
 </resources>
